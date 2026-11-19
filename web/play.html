@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Monolitos</title>
+<link rel="stylesheet" href="https://v8.js-dos.com/latest/js-dos.css">
+<script src="https://v8.js-dos.com/latest/js-dos.js"></script>
+<style>
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+  html, body { margin: 0; height: 100%; background: #0b0814; color: #d8cde8; }
+  body { display: flex; flex-direction: column; overscroll-behavior: none; }
+  #dos { width: min(100vw, 960px); height: min(62.5vw, 600px); flex: none; margin: 0 auto; background: #000; }
+  #msg { text-align: center; font-size: 14px; padding: 8px 16px; }
+  #goal { max-width: 640px; margin: 10px auto 0; padding: 0 16px; font-size: 14px; line-height: 1.45; text-align: center; color: #cbbfe0; }
+  #goal b { color: #f3e3b0; font-weight: 600; }
+  #pad { display: none; flex: 1; justify-content: space-between; align-items: center;
+         padding: 12px 16px 24px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .cross { display: grid; grid-template: repeat(3, 64px) / repeat(3, 64px); gap: 6px; }
+  .b { border-radius: 14px; background: #2a1f3d; border: 1px solid #4a3a66; color: #e9e0f5;
+       display: flex; align-items: center; justify-content: center; font-size: 26px; touch-action: none; }
+  .b.on { background: #5b4685; }
+  #fire { width: 112px; height: 112px; border-radius: 50%; font-size: 18px; letter-spacing: .08em;
+          background: #12424a; border-color: #2f7f86; }
+  #fire.on { background: #2f7f86; }
+  a { color: #9fe3e8; }
+  @media (pointer: coarse) { #pad { display: flex; } #help { display: none; } }
+</style>
+</head>
+<body>
+<div id="dos"></div>
+<p id="goal">Reúne <b>3 runas</b> y llévalas a una plataforma para alzar su monolito. Alza los <b>4</b> antes de que caiga la noche. Los <b>eclipses</b> roban sol: destrúyelos con luz y recoge su brasa.</p>
+<div id="msg"><span id="help">Flechas o WASD para andar y girar · espacio para lanzar luz · </span><a id="dl" href="#" download="MONOLITO.COM">descargar el .COM</a></div>
+<div id="pad">
+  <div class="cross">
+    <span></span><div class="b" data-k="38" data-c="ArrowUp">▲</div><span></span>
+    <div class="b" data-k="37" data-c="ArrowLeft">◀</div><span></span><div class="b" data-k="39" data-c="ArrowRight">▶</div>
+    <span></span><div class="b" data-k="40" data-c="ArrowDown">▼</div><span></span>
+  </div>
+  <div class="b" id="fire" data-k="32" data-c="Space">LUZ</div>
+</div>
+<script>
+// El juego viaja en el propio enlace: #<deflate en base 43>. Esta página solo es la consola.
+const B43 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$*+-./:";
+
+function b43decode(text) {
+  let n = 0n;
+  for (const ch of text) {
+    const v = B43.indexOf(ch);
+    if (v < 0) throw new Error("carácter no válido en el enlace");
+    n = n * 43n + BigInt(v);
+  }
+  let hex = n.toString(16);
+  if (hex.length % 2) hex = "0" + hex;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i++) bytes[i] = parseInt(hex.substr(i * 2, 2), 16);
+  return bytes.subarray(1);              // el 1 inicial solo conserva los ceros de cabeza
+}
+
+async function inflate(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+const CRC = new Uint32Array(256).map((_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+const crc32 = (d) => { let c = ~0; for (const b of d) c = CRC[(c ^ b) & 255] ^ (c >>> 8); return ~c >>> 0; };
+
+// Zip mínimo sin compresión: lo que js-dos espera como paquete .jsdos
+function zip(files) {
+  const enc = new TextEncoder(), parts = [], central = [];
+  let offset = 0;
+  for (const [name, data] of files) {
+    const nm = enc.encode(name), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 10, true);
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true);
+    h.setUint16(26, nm.length, true);
+    parts.push(new Uint8Array(h.buffer), nm, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 10, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+    c.setUint16(28, nm.length, true); c.setUint32(42, offset, true);
+    central.push(new Uint8Array(c.buffer), nm);
+    offset += 30 + nm.length + data.length;
+  }
+  const size = central.reduce((s, p) => s + p.length, 0);
+  const e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true);
+  e.setUint32(12, size, true); e.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, new Uint8Array(e.buffer)], { type: "application/zip" });
+}
+
+const CONF = "[cpu]\ncycles=max\n\n[autoexec]\necho off\nmount c .\nc:\nGAME.COM\n";
+
+async function main() {
+  const payload = decodeURIComponent(location.hash.slice(1));
+  if (!payload) { document.getElementById("msg").textContent = "Este enlace no trae ningún juego: escanea el QR."; return; }
+  const game = await inflate(b43decode(payload));
+  document.getElementById("dl").href = URL.createObjectURL(new Blob([game], { type: "application/octet-stream" }));
+  const bundle = zip([["GAME.COM", game], [".jsdos/dosbox.conf", new TextEncoder().encode(CONF)]]);
+  Dos(document.getElementById("dos"), { url: URL.createObjectURL(bundle), autoStart: true, kiosk: true });
+}
+
+// Mando táctil: cada botón pulsa y suelta su tecla (las mismas que el teclado)
+function key(type, keyCode, code) {
+  const key = code === "Space" ? " " : code;
+  document.body.dispatchEvent(new KeyboardEvent(type, { key, code, keyCode, which: keyCode, bubbles: true }));
+}
+for (const b of document.querySelectorAll("[data-k]")) {
+  const k = +b.dataset.k, c = b.dataset.c;
+  const down = (e) => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch {} b.classList.add("on"); key("keydown", k, c); };
+  const up = (e) => { e.preventDefault(); if (!b.classList.contains("on")) return; b.classList.remove("on"); key("keyup", k, c); };
+  b.addEventListener("pointerdown", down);
+  for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) b.addEventListener(t, up);
+}
+document.addEventListener("contextmenu", (e) => e.preventDefault());
+
+main().catch((err) => { document.getElementById("msg").textContent = "No se pudo abrir el juego: " + err.message; });
+</script>
+</body>
+</html>
