@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monolitos: un mundo dentro de un QR</title>
+<meta name="description" content="Un mundo abierto en primera persona en 2.991 bytes de ensamblador x86 que cabe entero en un código QR.">
+<style>
+  :root { color-scheme: dark; font-family: system-ui, sans-serif; }
+  body { margin: 0; background: #0b0814; color: #d8cde8; line-height: 1.5; }
+  main { max-width: 880px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { margin: 0; font-size: clamp(32px, 7vw, 52px); letter-spacing: .02em; color: #f3e3b0; }
+  .lead { margin: 6px 0 24px; font-size: 18px; color: #cbbfe0; }
+  .shot { display: block; width: 100%; height: auto; border-radius: 10px; border: 1px solid #2a1f3d;
+          image-rendering: pixelated; }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: center; margin: 28px 0; }
+  .qr { background: #fff; padding: 10px; border-radius: 10px; width: 220px; max-width: 100%; }
+  .qr img { display: block; width: 100%; height: auto; image-rendering: pixelated; }
+  .cta { flex: 1; min-width: 240px; }
+  .cta p { margin: 0 0 16px; }
+  .play { display: inline-block; padding: 14px 26px; border-radius: 12px; background: #2f7f86;
+          color: #fff; font-weight: 600; text-decoration: none; font-size: 18px; }
+  .play:hover { background: #3a99a1; }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 8px 0 28px; }
+  .fact { background: #160f26; border: 1px solid #2a1f3d; border-radius: 10px; padding: 12px 14px; }
+  .fact b { display: block; font-size: 22px; color: #9fe3e8; }
+  a { color: #9fe3e8; }
+  footer { font-size: 14px; color: #8f82a8; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Monolitos</h1>
+  <p class="lead">Un mundo abierto en primera persona que cabe entero dentro de un código QR.</p>
+  <img class="shot" src="docs/monolitos.png" width="800" height="500"
+       alt="Un monolito alzado junto al sol poniente, sobre colinas violetas">
+
+  <div class="row">
+    <div class="qr"><img src="docs/qr.png" width="177" height="177" alt="Código QR con el juego completo"></div>
+    <div class="cta">
+      <p><b>Escanéalo con el móvil</b>: el enlace lleva el juego entero, comprimido. No hay servidor de
+        juego ni descargas; esta página solo lo descomprime y lo ejecuta en DOSBox.</p>
+      <a class="play" id="play" href="web/play.html">Jugar en el navegador</a>
+    </div>
+  </div>
+
+  <div class="facts">
+    <div class="fact"><b>2.991 bytes</b>de ensamblador x86 (.COM de DOS)</div>
+    <div class="fact"><b>2.593 bytes</b>comprimido con zopfli</div>
+    <div class="fact"><b>QR 38-L</b>enlace y juego en un solo código</div>
+    <div class="fact"><b>Cada partida</b>una tierra distinta</div>
+  </div>
+
+  <p>Reúne 3 runas y llévalas a una plataforma para alzar su monolito. Alza los 4 antes de que caiga la noche.
+    Flechas o WASD para andar y girar, espacio para lanzar luz; en el móvil, cruceta y botón LUZ.</p>
+
+  <footer>Código fuente y explicación técnica:
+    <a href="https://github.com/edu-martin-perales/monolitos-3kb-qr">github.com/edu-martin-perales/monolitos-3kb-qr</a></footer>
+</main>
+<script>
+  // El juego (deflate en base 43) lo escribe build.py --site en docs/juego.txt
+  fetch("docs/juego.txt").then((r) => r.ok ? r.text() : "").then((t) => {
+    if (t.trim()) document.getElementById("play").href = "web/play.html#" + t.trim();
+  });
+</script>
+</body>
+</html>

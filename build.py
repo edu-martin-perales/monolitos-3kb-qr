@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compila el juego, lo mete en un QR y lo verifica.
 
-Uso:  .venv/bin/python build.py [src/archivo.asm] [--url=PREFIJO] [--draft]
+Uso:  .venv/bin/python build.py [src/archivo.asm] [--url=PREFIJO] [--draft] [--site]
 
 El QR contiene una URL  PREFIJO + juego, donde el juego va comprimido (deflate)
 y codificado en base 43 (alfabeto alfanumérico del QR que es seguro en URLs).
@@ -15,7 +15,10 @@ Lee el PNG con un decodificador independiente (zxing-cpp) y comprueba que el
 enlace reconstruye exactamente el juego. Salida en build/: <nombre>.com, .lst
 (listado de NASM), -qr.png y -url.txt (el enlace, para probar en el navegador).
 --draft: si no cabe en el QR, avisa pero escribe el enlace igualmente.
+--site:  copia el QR a docs/qr.png y el juego (base 43) a docs/juego.txt, que
+         usan la portada (index.html) y el README. Para publicar, junto con --url.
 """
+import shutil
 import socket
 import subprocess
 import sys
@@ -134,6 +137,13 @@ def main() -> None:
     if zlib.decompress(b43_decode(got.decode()[len(prefix):]), -15) != data:
         fail("el enlace leído no reconstruye el binario")
     print("Verificado: el QR se lee y reconstruye el juego byte a byte")
+
+    if "--site" in opts:
+        docs = ROOT / "docs"
+        docs.mkdir(exist_ok=True)
+        shutil.copyfile(png, docs / "qr.png")
+        (docs / "juego.txt").write_text(payload + "\n")
+        print("Portada:   docs/qr.png y docs/juego.txt")
 
 
 if __name__ == "__main__":
